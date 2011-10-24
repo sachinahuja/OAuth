@@ -1,0 +1,49 @@
+providers:
+  - name: twitter
+    version: 1
+    baseApiUrl: http://api.twitter.com/1/
+    authUrl: https://api.twitter.com/oauth/authorize?oauth_token=%s
+    requestTokenUrl: http://api.twitter.com/oauth/request_token
+    accessTokenUrl: http://api.twitter.com/oauth/access_token
+    resources:
+      - id: verify_cred
+        path: account/verify_credentials.json
+        method: get
+        response: json
+      - id: home_timeline
+        path: statuses/home_timeline.json
+        method: get
+        response: json
+      - id: mentions
+        path: statuses/mentions.json
+        method: get
+        response: json
+        description: Returns the 20 most recent mentions (status containing @username) for the authenticating user
+      - id: retweeted_by
+        path: statuses/:id/retweeted_by.json
+        method: get
+        response: json
+        description: Show user objects of up to 100 members who retweeted the status
+      - id: retweets
+        path: statuses/retweets/:id.json
+        method: get
+        response: json
+      - id: tweet
+        path: statuses/update.json
+        method: post
+        response: json
+        postParams:
+          - status
+  - name: facebook
+    version: 2
+    baseApiUrl: https://graph.facebook.com/
+    authUrl: https://www.facebook.com/dialog/oauth?display=touch&client_id=%s&redirect_uri=%s
+    accessTokenUrl: https://graph.facebook.com/oauth/access_token?client_id=%s&client_secret=%s&redirect_uri=%s&code=%s
+    accessTokenKey: oauth_token
+    resources:
+      - id: create_status_update
+        path: :profile_id/feed
+        method: post
+        response: json
+     
+    
