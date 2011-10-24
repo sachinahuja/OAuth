@@ -49,16 +49,6 @@ public class V1 extends Service {
 	public static final String HDR_PREAMBLE		= "OAuth ";
 	public static final String HDR_DELIM		= ", ";
 	
-	//OAuth 1.0 Signature params
-	public static final String HMAC_SHA1		= "HMAC-SHA1";
-	private static final String EMPTY_STRING = "";
-	private static final String CARRIAGE_RETURN = "\r\n";
-	private static final String UTF8 = "UTF-8";
-	
-	//OAuth 1.0 Default METHOD
-	public static final String METHOD			= "POST";
-	private static final String CONTENT_TYPE = "Content-Type";
-	public static final String DEFAULT_CONTENT_TYPE = "application/x-www-form-urlencoded";
 
 	private Map<String, String> reqTokenParams;
 	private Hashtable<String, String> accessTokenParams;
