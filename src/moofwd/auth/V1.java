@@ -4,51 +4,31 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
-import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
-import java.net.URI;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.security.Provider;
 import java.security.Security;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Hashtable;
-import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Random;
 import java.util.Set;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
-
-import moofwd.auth.OAuth.Providers;
 import moofwd.auth.OAuth.Resource;
-import moofwd.auth.Utils.PercentEncoder;
 
-import org.apache.commons.codec.binary.Base64;
 import org.apache.http.HttpResponse;
-import org.apache.http.NameValuePair;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
-import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
-import org.apache.http.client.utils.URIUtils;
-import org.apache.http.client.utils.URLEncodedUtils;
 import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.message.BasicNameValuePair;
-import org.apache.http.params.BasicHttpParams;
-import org.apache.http.params.HttpParams;
-import org.apache.http.protocol.HTTP;
 import org.apache.http.util.EntityUtils;
 import org.json.JSONObject;
-import org.yaml.snakeyaml.util.UriEncoder;
 
 import static moofwd.auth.OutputUtils.*;
+import static moofwd.auth.Utils.*;
 public class V1 extends Service {
 
 	//OAuth 1.0 Request Token Params
@@ -165,71 +145,78 @@ public class V1 extends Service {
 		return responseBody;
 	}
 	private String post(String url, Map<String,String> header, Map<String,String> params)throws UnsupportedEncodingException, ClientProtocolException, IOException{
-		//Lets try with Java.net
-//		HttpURLConnection connection = (HttpURLConnection)new URL(url).openConnection();
-//		connection.setRequestMethod("POST");
-//		connection.setRequestProperty(O_HEADER, getHeaderString(header));
-//		connection.setRequestProperty(CONTENT_TYPE, DEFAULT_CONTENT_TYPE);
-//		connection.setDoOutput(true);
-//		String responseBody = null;
-//		
-//		Set<String> keys = params.keySet();
-//		StringBuffer bodyParams = new StringBuffer();
-//		for (String key : keys) {
-//				bodyParams.append(URLEncoder.encode(key, UTF8)).append("=").append(URLEncoder.encode(params.get(key), UTF8)).append("&");
-//		}
-//		String encodedParams = bodyParams.toString().substring(0, bodyParams.length()-1);
-//		shout("Encoded PARAMS: "+encodedParams);
-//		connection.getOutputStream().write(encodedParams.getBytes());
-//		connection.connect();
-//		int responseCode = connection.getResponseCode();
-//		boolean success = responseCode >= 200 && responseCode < 400; 
-//		InputStream is = success?connection.getInputStream():connection.getErrorStream();
-//		
-//			//Success!!
-//			
-//			//Reading technique copied from http://stackoverflow.com/questions/309424/in-java-how-do-a-read-convert-an-inputstream-in-to-a-string
-//			final char[] buffer = new char[0x10000];
-//			StringBuilder out = new StringBuilder();
-//			Reader in = new InputStreamReader(is, UTF8);
-//			int read;
-//			do {
-//			  read = in.read(buffer, 0, buffer.length);
-//			  if (read>0) {
-//			    out.append(buffer, 0, read);
-//			  }
-//			} while (read>=0);
-//			responseBody = out.toString();
-//			shout("Response BODY:" +responseBody);
-			
+		//HTTPClient Version not working ... Java.net implementation is doing great
+		//Looks like percentEncoding and URLEncoded params stuff doesn't go very well together
+		//If HttpClient post doesn't get resolved ... will need to move everything to java.net and remove dependency altogether
+		HttpURLConnection connection = (HttpURLConnection)new URL(url).openConnection();
+		connection.setRequestMethod("POST");
+		connection.setRequestProperty(O_HEADER, getHeaderString(header));
+		connection.setRequestProperty(CONTENT_TYPE, DEFAULT_CONTENT_TYPE);
+		connection.setDoOutput(true);
+		String responseBody = null;
 		
-		
-		
-		
-		
-		
-		
-		HttpClient client = new DefaultHttpClient();
-		HttpPost post = new HttpPost(url);
-		post.addHeader(O_HEADER, getHeaderString(header));
-		post.addHeader(CONTENT_TYPE, DEFAULT_CONTENT_TYPE);
-		List<NameValuePair> postParams = new ArrayList<NameValuePair>();
 		Set<String> keys = params.keySet();
-		HttpParams httpParams = new BasicHttpParams();
+		StringBuffer bodyParams = new StringBuffer();
 		for (String key : keys) {
-			
-			httpParams.setParameter(key, URLEncoder.encode(params.get(key), UTF8));
-			//String param = PercentEncoder.encode(params.get(key));
-			//postParams.add(new BasicNameValuePair(key, param));
+				bodyParams.append(URLEncoder.encode(key, UTF8)).append("=").append(PercentEncoder.encode(params.get(key))).append("&");
 		}
-		post.setParams(httpParams);
+		String encodedParams = bodyParams.toString().substring(0, bodyParams.length()-1);
+		shout("Encoded PARAMS: "+encodedParams);
+		connection.getOutputStream().write(encodedParams.getBytes());
+		connection.connect();
+		int responseCode = connection.getResponseCode();
+		boolean success = responseCode >= 200 && responseCode < 400; 
+		InputStream is = success?connection.getInputStream():connection.getErrorStream();
 		
-		//post.setEntity(new UrlEncodedFormEntity(postParams,HTTP.UTF_8));
+			//Success!!
+			
+			//Reading technique copied from http://stackoverflow.com/questions/309424/in-java-how-do-a-read-convert-an-inputstream-in-to-a-string
+			final char[] buffer = new char[0x10000];
+			StringBuilder out = new StringBuilder();
+			Reader in = new InputStreamReader(is, UTF8);
+			int read;
+			do {
+			  read = in.read(buffer, 0, buffer.length);
+			  if (read>0) {
+			    out.append(buffer, 0, read);
+			  }
+			} while (read>=0);
+			responseBody = out.toString();
+			shout("Response BODY:" +responseBody);
+			in.close();
+			is.close();
+			
+		connection.disconnect();
+			
 		
-		HttpResponse response = client.execute(post);
-		String responseBody = EntityUtils.toString(response.getEntity());
-		shout("Here's the RESPONSE from "+provider.name+" ===========>>>>>>>>>>");
-		shout(responseBody);
+		
+		
+		
+		
+		
+		
+//		HttpClient client = new DefaultHttpClient();
+//		HttpPost post = new HttpPost(url);
+//		post.addHeader(O_HEADER, getHeaderString(header));
+//		post.addHeader(CONTENT_TYPE, DEFAULT_CONTENT_TYPE);
+//		List<NameValuePair> postParams = new ArrayList<NameValuePair>();
+//		Set<String> keys = params.keySet();
+//		HttpParams httpParams = new BasicHttpParams();
+//		for (String key : keys) {
+//			
+//			//httpParams.setParameter(key, PercentEncoder.encode(params.get(key)));
+//			String param = PercentEncoder.encode(params.get(key));
+//			postParams.add(new BasicNameValuePair(key, param));
+//		}
+//		post.setParams(httpParams);
+//		
+//		
+//		//post.setEntity(new UrlEncodedFormEntity(postParams,HTTP.UTF_8));
+//		
+//		HttpResponse response = client.execute(post);
+//		String responseBody = EntityUtils.toString(response.getEntity());
+//		shout("Here's the RESPONSE from "+provider.name+" ===========>>>>>>>>>>");
+//		shout(responseBody);
 		return responseBody;
 	}
 	
@@ -263,67 +250,9 @@ public class V1 extends Service {
 	}
 	
 	
-	private  String getBaseString(Map<String, String> authParams, String url)throws UnsupportedEncodingException{
-		
-		return getBaseString(authParams, url, "POST");
 	
-	}
 	
-	//Step 2 ---- Generate Base String from params
-	private  String getBaseString(Map<String, String> authParams, String url, String method)throws UnsupportedEncodingException{
-		say("V1: getBaseString");
-		StringBuffer params = new StringBuffer();
-		List<String> paramKeys = new ArrayList<String>(authParams.keySet());
-		Collections.sort(paramKeys);
-		for (String key : paramKeys) {
-			if (params.length()>0)
-				params.append("&");
-			params.append(URLEncoder.encode(key, UTF8)).append("=").append(PercentEncoder.encode(authParams.get(key)));
-		}
-		
-		String baseString = method
-							+ "&"
-							+ URLEncoder.encode(url, "UTF-8")
-							+ "&"
-							+ URLEncoder.encode(params.toString(), UTF8);
-		
-		System.out.println("BAse String: "+baseString);
-		return baseString;
-	}
 	
-	private  String getHeaderString(Map<String, String> authParams)throws UnsupportedEncodingException{
-		StringBuffer sbf = null; 
-		Set<Entry<String, String>> entries = authParams.entrySet();
-		for (Entry<String, String> entry : entries) {
-			if (sbf==null)
-				sbf = new StringBuffer("OAuth ");
-			else
-				sbf.append(", ");
-			sbf.append(entry.getKey()).append("=").append("\"").append(URLEncoder.encode(entry.getValue(), UTF8)).append("\"");
-		}
-		System.out.println("Header String ::: "+sbf.toString());
-		return sbf.toString();
-	}
-	
-	//Step 3 ----- Get request token from the provider
-	private  String sign(String toSign, String secretKey)throws Exception{
-		SecretKeySpec key = new SecretKeySpec(secretKey.getBytes(UTF8), HMAC_SHA1);
-	    Mac mac = Mac.getInstance("HmacSHA1");
-	    mac.init(key);
-	    byte[] bytes = mac.doFinal(toSign.getBytes(UTF8));
-	    String y = new String(Base64.encodeBase64(bytes)).replace(CARRIAGE_RETURN, EMPTY_STRING);
-		System.out.println("BASE 64 String :::: "+y);
-		return y;
-	}	
-	
-	private String getSecretKey(String token1, String token2)throws UnsupportedEncodingException{
-		if (token2==null)
-			return token1+"&";
-//		String t1 = URLEncoder.encode(token1, "UTF-8");
-//		String t2 = URLEncoder.encode(token2, "UTF-8");
-		shout("token #1:: "+token1+" & token #2: "+token2);
-		return URLEncoder.encode(token1, UTF8) + "&" + URLEncoder.encode(token2, UTF8);
-	}
 	
 	
 	
