@@ -66,7 +66,7 @@ public abstract class Service{
 		return map;
 	}	
 	
-protected JSONObject extractAccessToken(String response) throws JSONException{
+	protected JSONObject extractAccessToken(String response) throws JSONException{
 		
 		JSONObject respJson = null;
 		if (response.startsWith("{")){
@@ -87,5 +87,15 @@ protected JSONObject extractAccessToken(String response) throws JSONException{
 		owner = new Owner().token(at).secret(ats).data(respJson);
 		return respJson;
 		
+	}
+	
+	public static class Response{
+		String response;
+		public boolean isError;
+		int responseCode;
+		public Response(int responseCode){
+			this.responseCode = responseCode;
+			isError = responseCode<200 || responseCode>=400;
+		}
 	}
 }

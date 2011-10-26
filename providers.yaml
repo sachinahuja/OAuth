@@ -45,5 +45,24 @@ providers:
         path: :profile_id/feed
         method: post
         response: json
+  - name: linkedin
+    version: 1
+    baseApiUrl: http://api.linkedin.com/v1/
+    authUrl: https://www.linkedin.com/uas/oauth/authorize?oauth_token=%s
+    requestTokenUrl: https://api.linkedin.com/uas/oauth/requestToken
+    accessTokenUrl: https://api.linkedin.com/uas/oauth/accessToken
+    resources:
+      - id: me
+        path: people/~
+        method: get
+        response: xml
+      - id: profile
+        path: people/id=:id
+        method: get
+        response: xml
+      - id: public_profile
+        path: people/url=:url
+        method: get
+        response: xml
      
     

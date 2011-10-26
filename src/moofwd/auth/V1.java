@@ -1,13 +1,6 @@
 package moofwd.auth;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.Reader;
 import java.io.UnsupportedEncodingException;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.net.URLEncoder;
 import java.security.Provider;
 import java.security.Security;
 import java.util.HashMap;
@@ -18,13 +11,6 @@ import java.util.Set;
 
 import moofwd.auth.OAuth.Resource;
 
-import org.apache.http.HttpResponse;
-import org.apache.http.client.ClientProtocolException;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.util.EntityUtils;
 import org.json.JSONObject;
 
 import static moofwd.auth.OutputUtils.*;
@@ -76,9 +62,10 @@ public class V1 extends Service {
 		String signature = sign(baseString, getSecretKey(consumer.apiSecret, null));
 		authParams.put(O_SIGNATURE, signature);
 		
-		String header = getHeaderString(authParams);
+		//String header = getHeaderString(authParams);
 		//Now, lets call the oauth provider
-		String response = connectThruHttpClient(header, provider.requestTokenUrl);
+		Response resp =  post(provider.requestTokenUrl, authParams, null);// connectThruHttpClient(header, provider.requestTokenUrl);
+		String response = resp.response;
 		reqTokenParams = new HashMap<String, String>();
 		extract(response, reqTokenParams);
 		return String.format(provider.authUrl, reqTokenParams.get(O_TOKEN));
@@ -116,128 +103,17 @@ public class V1 extends Service {
 			String secret = getSecretKey(consumer.apiSecret, owner.accessTokenSecret); //("MCD8BKwGdgPHvAuvgvz4EQpqDAtx89grbuNMRd7Eh98", "J6zix3FfA9LofH0awS24M3HcBYXO5nI1iYe8EfBA");//
 			String signature = sign(baseString, secret);
 			params.put(O_SIGNATURE, signature);
-			String response = (isPost)?post(resourceUrl, params, postData):get(resourceUrl,params);
+			Response resp = doMethod(resource.method, resourceUrl, params, postData);
+			shout(resp.response);
+			//String response = (isPost)?post(resourceUrl, params, postData):get(resourceUrl,params);
 			
 		}catch(Exception e){
 			e.printStackTrace();
 		}
 	}
 	
-	private String get(String url, Map<String,String> header)throws UnsupportedEncodingException, ClientProtocolException, IOException{
-		HttpClient client = new DefaultHttpClient();
-		HttpGet get = new HttpGet(url);
-		get.addHeader(O_HEADER, getHeaderString(header));
-		get.addHeader(CONTENT_TYPE, DEFAULT_CONTENT_TYPE);
-		HttpResponse response = client.execute(get);
-		String responseBody = EntityUtils.toString(response.getEntity());
-		shout("Here's the RESPONSE from "+provider.name+" ===========>>>>>>>>>>");
-		shout(responseBody);
-		return responseBody;
-	}
-	private String post(String url, Map<String,String> header, Map<String,String> params)throws UnsupportedEncodingException, ClientProtocolException, IOException{
-		//HTTPClient Version not working ... Java.net implementation is doing great
-		//Looks like percentEncoding and URLEncoded params stuff doesn't go very well together
-		//If HttpClient post doesn't get resolved ... will need to move everything to java.net and remove dependency altogether
-		HttpURLConnection connection = (HttpURLConnection)new URL(url).openConnection();
-		connection.setRequestMethod("POST");
-		connection.setRequestProperty(O_HEADER, getHeaderString(header));
-		connection.setRequestProperty(CONTENT_TYPE, DEFAULT_CONTENT_TYPE);
-		connection.setDoOutput(true);
-		String responseBody = null;
-		
-		Set<String> keys = params.keySet();
-		StringBuffer bodyParams = new StringBuffer();
-		for (String key : keys) {
-				bodyParams.append(URLEncoder.encode(key, UTF8)).append("=").append(PercentEncoder.encode(params.get(key))).append("&");
-		}
-		String encodedParams = bodyParams.toString().substring(0, bodyParams.length()-1);
-		shout("Encoded PARAMS: "+encodedParams);
-		connection.getOutputStream().write(encodedParams.getBytes());
-		connection.connect();
-		int responseCode = connection.getResponseCode();
-		boolean success = responseCode >= 200 && responseCode < 400; 
-		InputStream is = success?connection.getInputStream():connection.getErrorStream();
-		
-			//Success!!
-			
-			//Reading technique copied from http://stackoverflow.com/questions/309424/in-java-how-do-a-read-convert-an-inputstream-in-to-a-string
-			final char[] buffer = new char[0x10000];
-			StringBuilder out = new StringBuilder();
-			Reader in = new InputStreamReader(is, UTF8);
-			int read;
-			do {
-			  read = in.read(buffer, 0, buffer.length);
-			  if (read>0) {
-			    out.append(buffer, 0, read);
-			  }
-			} while (read>=0);
-			responseBody = out.toString();
-			shout("Response BODY:" +responseBody);
-			in.close();
-			is.close();
-			
-		connection.disconnect();
-			
-		
-		
-		
-		
-		
-		
-		
-//		HttpClient client = new DefaultHttpClient();
-//		HttpPost post = new HttpPost(url);
-//		post.addHeader(O_HEADER, getHeaderString(header));
-//		post.addHeader(CONTENT_TYPE, DEFAULT_CONTENT_TYPE);
-//		List<NameValuePair> postParams = new ArrayList<NameValuePair>();
-//		Set<String> keys = params.keySet();
-//		HttpParams httpParams = new BasicHttpParams();
-//		for (String key : keys) {
-//			
-//			//httpParams.setParameter(key, PercentEncoder.encode(params.get(key)));
-//			String param = PercentEncoder.encode(params.get(key));
-//			postParams.add(new BasicNameValuePair(key, param));
-//		}
-//		post.setParams(httpParams);
-//		
-//		
-//		//post.setEntity(new UrlEncodedFormEntity(postParams,HTTP.UTF_8));
-//		
-//		HttpResponse response = client.execute(post);
-//		String responseBody = EntityUtils.toString(response.getEntity());
-//		shout("Here's the RESPONSE from "+provider.name+" ===========>>>>>>>>>>");
-//		shout(responseBody);
-		return responseBody;
-	}
-	
-	private  String connectThruHttpClient(String header, String url)throws Exception{
-		say("V1: connect");
-		HttpClient client = new DefaultHttpClient();
-		HttpPost post = new HttpPost(url);
-		post.addHeader(O_HEADER, header);
-		post.addHeader(CONTENT_TYPE, DEFAULT_CONTENT_TYPE);
-		HttpResponse response = client.execute(post);
-		String responseBody = EntityUtils.toString(response.getEntity());
-		System.out.println("REsponse::: "+responseBody);
-		return responseBody;
-		
-	}
-	
-	
-	
-	
-	
 	//Step 1 ---- Add OAuth Params to Map
-	private  Map<String, String> getOAuthParams(){
-		Map<String, String> authParams = new HashMap<String, String>();
-		authParams.put(O_CALLBACK, consumer.callback);
-		authParams.put(O_CONS_KEY, consumer.apiKey);
-		authParams.put(O_NONCE, nonce());
-		authParams.put(O_SIGN_METHOD, HMAC_SHA1);
-		authParams.put(O_TIMESTAMP, timeInSecs());
-		authParams.put(O_VERSION, "1.0");
-		return authParams;
-	}
+	
 	
 	
 	
@@ -258,9 +134,11 @@ public class V1 extends Service {
 			String secretKey = getSecretKey(consumer.apiSecret, reqTokenParams.get(O_TOKEN_SECRET));
 			String signature = sign(baseString, secretKey);
 			authParams.put(O_SIGNATURE, signature);
-			String header = getHeaderString(authParams);
+			//String header = getHeaderString(authParams);
 			//Now, lets call the oauth provider
-			String response = connectThruHttpClient(header, provider.accessTokenUrl);
+			Response resp = post(provider.accessTokenUrl, authParams, null);
+			String response = resp.response;
+					//connectThruHttpClient(header, provider.accessTokenUrl);
 			System.out.println("Response:::: "+response);
 			if (!response.contains(O_TOKEN)){
 				
@@ -277,6 +155,17 @@ public class V1 extends Service {
 		}catch(Exception e){
 			e.printStackTrace();
 		}
+	}
+	
+	private  Map<String, String> getOAuthParams(){
+		Map<String, String> authParams = new HashMap<String, String>();
+		authParams.put(O_CALLBACK, consumer.callback);
+		authParams.put(O_CONS_KEY, consumer.apiKey);
+		authParams.put(O_NONCE, nonce());
+		authParams.put(O_SIGN_METHOD, HMAC_SHA1);
+		authParams.put(O_TIMESTAMP, timeInSecs());
+		authParams.put(O_VERSION, "1.0");
+		return authParams;
 	}
 	
 	private  Map<String, String> getAccessParams(String oauth_verifier, String token){
@@ -310,7 +199,7 @@ public class V1 extends Service {
 	
 	
 	
-	/// List all algos
+	/// List all algos --- test method to get the right string for hmac sha1. To be removed after cross OS testing
 	public static void getCryptoImpls(String serviceType) {
 	    	    
 	    Provider[] providers = Security.getProviders();

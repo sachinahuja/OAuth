@@ -1,6 +1,8 @@
 package moofwd.auth;
 
 import java.io.Serializable;
+import java.io.UTFDataFormatException;
+import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -111,7 +113,7 @@ public class OAuth {
 			while (keys.hasNext()) {
 				String key = keys.next();
 				if (localPath.contains(":"+key))
-					localPath = localPath.replace(":"+key, input.getString(key));
+					localPath = localPath.replace(":"+key, URLEncoder.encode(input.getString(key), "UTF-8"));
 			}
 			
 			System.out.println("Original Path: "+path);

@@ -3,11 +3,18 @@ package moofwd.auth;
 import static moofwd.auth.OutputUtils.say;
 import static moofwd.auth.OutputUtils.shout;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.io.UnsupportedEncodingException;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.ProtocolException;
+import java.net.URL;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -17,14 +24,14 @@ import java.util.Map.Entry;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
+import moofwd.auth.Service.Response;
+
 import org.apache.commons.codec.binary.Base64;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.utils.URIUtils;
-import org.apache.http.util.EncodingUtils;
-import org.yaml.snakeyaml.util.UriEncoder;
 
 public class Utils {
 
+	public static final String O_HEADER			= "Authorization";
+	
 	//OAuth 1.0 Signature params
 	public static final String HMAC_SHA1		= "HMAC-SHA1";
 	public static final String EMPTY_STRING 	= "";
@@ -49,14 +56,14 @@ public class Utils {
 		for (String key : paramKeys) {
 			if (params.length()>0)
 				params.append("&");
-			params.append(URLEncoder.encode(key, UTF8)).append("=").append(PercentEncoder.encode(authParams.get(key)));
+			params.append(PercentEncoder.encode(key)).append("=").append(PercentEncoder.encode(authParams.get(key)));
 		}
 		
 		String baseString = method
 							+ "&"
-							+ URLEncoder.encode(url, "UTF-8")
+							+ PercentEncoder.encode(url)
 							+ "&"
-							+ URLEncoder.encode(params.toString(), UTF8);
+							+ PercentEncoder.encode(params.toString());
 		
 		System.out.println("BAse String: "+baseString);
 		return baseString;
@@ -70,7 +77,7 @@ public class Utils {
 				sbf = new StringBuffer("OAuth ");
 			else
 				sbf.append(", ");
-			sbf.append(entry.getKey()).append("=").append("\"").append(URLEncoder.encode(entry.getValue(), UTF8)).append("\"");
+			sbf.append(entry.getKey()).append("=").append("\"").append(PercentEncoder.encode(entry.getValue())).append("\"");
 		}
 		System.out.println("Header String ::: "+sbf.toString());
 		return sbf.toString();
@@ -93,10 +100,109 @@ public class Utils {
 //		String t1 = URLEncoder.encode(token1, "UTF-8");
 //		String t2 = URLEncoder.encode(token2, "UTF-8");
 		shout("token #1:: "+token1+" & token #2: "+token2);
-		return URLEncoder.encode(token1, UTF8) + "&" + URLEncoder.encode(token2, UTF8);
+		return PercentEncoder.encode(token1) + "&" + PercentEncoder.encode(token2);
 	}
 	
+	public static Response doMethod(String method, String url, Map<String, String> headers, Map<String, String> params){
+		Response resp = null;
+		method = method.toUpperCase();
+		if ("POST".equals(method))
+			resp = post(url,headers,params);
+		else
+			resp = get(url, headers, params);
+		
+		return resp;
+	}
 	
+	public static Response get(String url, Map<String, String> headers, Map<String,String> params){
+		try{
+		//Lets set params
+		StringBuffer qStr = new StringBuffer("?");
+		Set<String> keys = params.keySet();
+		for (String key : keys) {
+			qStr.append(PercentEncoder.encode(key)).append("=").append(PercentEncoder.encode(params.get(key))).append("&");
+		}
+		url = url + qStr.substring(0,qStr.length()-1);
+		Response resp = connect("GET", url,params,headers);
+		return resp;
+		}catch(Exception e){
+			e.printStackTrace();
+			return null;
+		}
+	}
+	
+	public static Response post(String url, Map<String, String> headers, Map<String,String> params){
+		try{
+		Response resp = connect("POST", url, params, headers);
+		return resp;
+		}catch(Exception e){
+			e.printStackTrace();
+			return null;
+		}
+	}
+	
+	private static Response connect(String method, String url, Map<String,String> params, Map<String,String> headers)throws ProtocolException, MalformedURLException, IOException, UnsupportedEncodingException{
+		HttpURLConnection connection = (HttpURLConnection)new URL(url).openConnection();
+		connection.setRequestMethod(method);
+		if (headers!=null)
+			connection.setRequestProperty(O_HEADER, getHeaderString(headers));
+		connection.setRequestProperty(CONTENT_TYPE, DEFAULT_CONTENT_TYPE);
+		connection.setDoOutput(true);
+		if (params!=null && ("POST".equals(method) || "PUT".equals(method))){
+			addPostBody(connection, params);
+		}
+		
+		
+		connection.connect();
+		int code = connection.getResponseCode();
+		Response resp = new Response(code);
+		shout("Response from Provider: "+resp.responseCode+" ... "+resp.isError);
+		InputStream is = null;
+		if (resp.isError){
+			shout("Error!!");
+			is = connection.getErrorStream();
+		} else {
+			shout("Done!!");
+			is = connection.getInputStream();
+		}
+		//InputStream is = (resp.isError)?connection.getErrorStream():connection.getInputStream();
+		String response = readStream(is);
+		resp.response = response;
+		
+		connection.disconnect();
+		return resp;
+		
+	}
+	
+	private static void addPostBody(HttpURLConnection connection, Map<String, String> params)throws IOException, UnsupportedEncodingException{
+		Set<String> keys = params.keySet();
+		StringBuffer bodyParams = new StringBuffer();
+		for (String key : keys) {
+				bodyParams.append(PercentEncoder.encode(key)).append("=").append(PercentEncoder.encode(params.get(key))).append("&");
+		}
+		String encodedParams = bodyParams.toString().substring(0, bodyParams.length()-1);
+		shout("Encoded PARAMS: "+encodedParams);
+		connection.getOutputStream().write(encodedParams.getBytes());
+	}
+	
+	//Reading technique copied from http://stackoverflow.com/questions/309424/in-java-how-do-a-read-convert-an-inputstream-in-to-a-string
+	private static String readStream(InputStream is)throws IOException{
+		final char[] buffer = new char[0x10000];
+		StringBuilder out = new StringBuilder();
+		Reader in = new InputStreamReader(is, UTF8);
+		int read;
+		do {
+		  read = in.read(buffer, 0, buffer.length);
+		  if (read>0) {
+		    out.append(buffer, 0, read);
+		  }
+		} while (read>=0);
+		String responseBody = out.toString();
+		shout("Response BODY:" +responseBody);
+		in.close();
+		is.close();
+		return responseBody;
+	}
 	
 	
 	// This class is copied almost wholly from scribe-java
@@ -116,7 +222,7 @@ public class Utils {
 	  }
 	  
 	  public static String encode(String str)throws UnsupportedEncodingException{
-		  String encoded = URLEncoder.encode(str, "UTF-8");
+		  String encoded = URLEncoder.encode(str, UTF8);
 		    for (EncodingRule rule : ENCODING_RULES)
 		    {
 		      encoded = rule.apply(encoded);
