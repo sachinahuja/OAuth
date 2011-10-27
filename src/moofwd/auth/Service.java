@@ -1,14 +1,11 @@
 package moofwd.auth;
 
-import java.net.URI;
-import java.net.URISyntaxException;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.HashMap;
 import java.util.Hashtable;
-import java.util.List;
 import java.util.Map;
 
-import org.apache.http.NameValuePair;
-import org.apache.http.client.utils.URLEncodedUtils;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -19,10 +16,11 @@ import moofwd.auth.OAuth.Provider;
 import static moofwd.auth.OutputUtils.*;
 public abstract class Service{
 
+	protected static final String QUERY_DELIM = "?";
 	
-	Provider provider;
-	Consumer consumer;
-	Owner owner;
+	public Provider provider;
+	public Consumer consumer;
+	public Owner owner;
 	JSONObject accessToken;
 	
 	protected Service(Provider provider, Consumer consumer){
@@ -33,7 +31,7 @@ public abstract class Service{
 	
 	
 	public abstract String authorize();
-	protected abstract void processToken(String url);
+	public abstract void processToken(String url);
 	public abstract void execute(String resourceId, JSONObject data);
 	
 	
@@ -57,13 +55,22 @@ public abstract class Service{
 	
 	
 	protected Map<String,String> extractQueryParams(String url){
-		URI uri = URI.create(url);
-		List<NameValuePair> nvp = URLEncodedUtils.parse(uri, "UTF-8");
-		Map<String, String> map = new HashMap<String, String>();
-		for (NameValuePair nameValuePair : nvp) {
-			map.put(nameValuePair.getName(), nameValuePair.getValue());
+		try{
+			URL yourl = new URL(url);
+			String queryString = yourl.getQuery();
+			String[] pairs = queryString.split("&");
+			Map<String, String> queryMap = new HashMap<String,String>();
+			for (String pair : pairs) {
+				String[] keyVal = pair.split("=");
+				queryMap.put(keyVal[0], keyVal[1]);
+			}
+			shout("Query Map: "+queryMap);
+			return queryMap;
+		}catch(MalformedURLException e){
+			e.printStackTrace();
+			return null;
 		}
-		return map;
+		
 	}	
 	
 	protected JSONObject extractAccessToken(String response) throws JSONException{
@@ -78,16 +85,15 @@ public abstract class Service{
 			extract(response, accessTokenData);
 			respJson = new JSONObject(accessTokenData);
 		}
+		setOwner(respJson);
 		
-		
-		String at = respJson.getString(provider.accessTokenKey);
-		String ats = respJson.optString(provider.accessTokenSecretKey);
-		respJson.remove(provider.accessTokenKey);
-		respJson.remove(provider.accessTokenSecretKey);
-		owner = new Owner().token(at).secret(ats).data(respJson);
 		return respJson;
 		
+		
 	}
+	
+	protected abstract void setOwner(JSONObject respJson)throws JSONException;
+		
 	
 	public static class Response{
 		String response;

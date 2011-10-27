@@ -1,32 +1,43 @@
 package moofwd.auth;
 
-import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
-import java.util.Hashtable;
+import java.util.HashMap;
 import java.util.Map;
 
+import moofwd.auth.OAuth.Owner;
 import moofwd.auth.OAuth.Provider;
+import moofwd.auth.OAuth.Resource;
 
-import org.apache.http.HttpResponse;
-import org.apache.http.client.ClientProtocolException;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.util.EntityUtils;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import static moofwd.auth.OutputUtils.*;
+import static moofwd.auth.Utils.*;
 
 public class V2 extends Service {
+
+	private static final String CODE 			= "code";
+	private static final String CLIENT_ID 		= "client_id";
+	private static final String CLIENT_SECRET	= "client_secret";
+	private static final String REDIR_URL 		= "redirect_uri";
 
 	protected V2(Provider provider, Consumer consumer){
 		super(provider, consumer);
 	}
 	
 	public void execute(String resourceId, JSONObject data){
-	
+		try{
+			Resource resource = provider.getResource(resourceId);
+			String resourceUrl = provider.getResourceAsUrl(resourceId, data);
+			Map<String, String> queryParams = resource.getParams(data);
+			queryParams.put("access_token", owner.accessToken);
+			Response response = doMethod(resource.method, resourceUrl, null, queryParams);
+			//Use the response!
+		
+		}catch(Exception e){
+			e.printStackTrace();
+		}
 	}
 
 	public String authorize() {
@@ -40,7 +51,7 @@ public class V2 extends Service {
 		}
 	}
 
-	protected void processToken(String url) {
+	public void processToken(String url) {
 		
 		try{
 		Map<String, String> queryParams = extractQueryParams(url);
@@ -49,31 +60,31 @@ public class V2 extends Service {
 			shout("No Code in response!: "+url);
 		} else {
 			//Lets get the "real" access token
-			String accessTokenResp = getAccessToken(code);
+			Map<String, String> params = new HashMap<String,String>();
+			params.put(CODE,code);
+			params.put(CLIENT_ID, consumer.apiKey);
+			params.put(CLIENT_SECRET,consumer.apiSecret);
+			params.put(REDIR_URL,consumer.callback);
+			Response atResponse = get(provider.accessTokenUrl, null, params);
+			String accessTokenResp = atResponse.response;//getAccessToken(code);
+			say("Response from "+provider.name+" :: "+accessTokenResp);
 			accessToken = extractAccessToken(accessTokenResp);
 			say("Here's the accessToken :"+accessToken);
 			 
 			
 		}
 		} catch(Exception e){
-			//this.oauthCallback.setErrorMessage("Error extracting authorization code from "+provider.name+" response");
-			
 			e.printStackTrace();
 		}
 			
 	}
 	
-	private String getAccessToken(String code) throws IOException{
-		
-		HttpClient client = new DefaultHttpClient();
-		String url = String.format(provider.accessTokenUrl, consumer.apiKey, consumer.apiSecret, URLEncoder.encode(consumer.callback,"UTF-8"), code);
-		HttpGet get = new HttpGet(url);
-		HttpResponse response = client.execute(get);
-		String respStr = EntityUtils.toString(response.getEntity());
-		return respStr;
-		
-	}
 	
+	protected void setOwner(JSONObject respJson)throws JSONException{
+		String at = respJson.getString(provider.accessTokenKey);
+		respJson.remove(provider.accessTokenKey);
+		owner = new Owner().token(at).data(respJson);
+	}
 	
 
 }

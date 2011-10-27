@@ -32,18 +32,22 @@ providers:
         path: statuses/update.json
         method: post
         response: json
-        postParams:
+        params:
           - status
   - name: facebook
     version: 2
     baseApiUrl: https://graph.facebook.com/
     authUrl: https://www.facebook.com/dialog/oauth?display=touch&client_id=%s&redirect_uri=%s
-    accessTokenUrl: https://graph.facebook.com/oauth/access_token?client_id=%s&client_secret=%s&redirect_uri=%s&code=%s
-    accessTokenKey: oauth_token
+    accessTokenUrl: https://graph.facebook.com/oauth/access_token
+    accessTokenKey: access_token
     resources:
       - id: create_status_update
         path: :profile_id/feed
         method: post
+        response: json
+      - id: me
+        path: me
+        method: get
         response: json
   - name: linkedin
     version: 1
@@ -53,7 +57,7 @@ providers:
     accessTokenUrl: https://api.linkedin.com/uas/oauth/accessToken
     resources:
       - id: me
-        path: people/~
+        path: people/~:(id,first-name,last-name,industry)
         method: get
         response: xml
       - id: profile

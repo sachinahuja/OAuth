@@ -16,7 +16,7 @@ import org.json.JSONObject;
 
 public class OAuth {
 
-	Providers<Provider> providers;
+	public Providers<Provider> providers;
 	
 	public Provider getProvider(String name){
 		return this.providers.get(name);
@@ -46,10 +46,10 @@ public class OAuth {
 	}
 	
 	public static class Provider{
-		String name, baseApiUrl, authUrl, requestTokenUrl, accessTokenUrl, codeKey="code", tokenFormat="query";
-		String accessTokenKey="oauth_token", accessTokenSecretKey = "oauth_token_secret"; //this is based on twitter/oauth1.0a
+		public String name, baseApiUrl, authUrl, requestTokenUrl, accessTokenUrl, codeKey="code", tokenFormat="query";
+		public String accessTokenKey="oauth_token", accessTokenSecretKey = "oauth_token_secret"; //this is based on twitter/oauth1.0a
 		int version;
-		Resources<Resource> resources;
+		public Resources<Resource> resources;
 		public static Provider provider(String name){
 			return new Provider().name(name);
 		}
@@ -94,7 +94,7 @@ public class OAuth {
 	public static class Resource{
 		
 		public String id, path, method, response, description;
-		public String[] postParams;
+		public String[] params;
 		
 		
 		
@@ -120,12 +120,25 @@ public class OAuth {
 			System.out.println("Configured Path: "+localPath);
 			return localPath;
 		}
+		
+		public Map<String, String> getParams(JSONObject data)throws JSONException{
+			if (params==null) return new HashMap<String,String>();
+			
+			Map<String, String> paramsMap = new HashMap<String, String>();
+			for (String param : params) {
+				paramsMap.put(param, data.getString(param)); // we are treating every  param as 'required' ... will change that soon
+			}
+			return paramsMap;
+		}
 	}
 	
 	public static class Owner implements Serializable{
-		long serialVersionUID=1110000;
-		String accessToken;
-		String accessTokenSecret;
+		/**
+		 * 
+		 */
+		
+		public String accessToken;
+		public String accessTokenSecret;
 		String accessTokenResponseInJSON;
 		private transient JSONObject data;
 		

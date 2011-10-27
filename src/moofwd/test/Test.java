@@ -1,4 +1,4 @@
-package moofwd.auth;
+package moofwd.test;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -16,6 +16,9 @@ import java.util.Map;
 import java.util.Scanner;
 import java.util.Set;
 
+import moofwd.auth.Consumer;
+import moofwd.auth.OAuth;
+import moofwd.auth.Service;
 import moofwd.auth.OAuth.Owner;
 import moofwd.auth.OAuth.Provider;
 import moofwd.auth.OAuth.Resource;
@@ -42,8 +45,8 @@ public class Test {
 			shout(provider.name+" / " + provider.authUrl);
 			for (Resource resource : provider.resources) {
 				shout("\t"+resource.id);
-				if (resource.postParams!=null){
-					for (String param : resource.postParams) {
+				if (resource.params!=null){
+					for (String param : resource.params) {
 						shout("\t\tParam: "+param);
 					}
 				}
@@ -161,8 +164,8 @@ public class Test {
 			shout("--------------------------------------------");
 		}
 		shout("\tPath: "+r.path);
-		if (r.postParams!=null){
-		for (String param : r.postParams) {
+		if (r.params!=null){
+		for (String param : r.params) {
 			shout("\t- PARAM: "+param);
 		}
 		}

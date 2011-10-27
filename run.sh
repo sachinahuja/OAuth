@@ -16,11 +16,12 @@ if [ $# -gt 0 ]
 		cd src
 		javac -cp $cp -d ../build org/json/*.java
 		javac -cp $cp -d ../build moofwd/auth/*.java
+		javac -cp $cp -d ../build moofwd/test/*.java
 		cd ..
 	fi
 fi
 
 
 cd build
-java -cp $cp moofwd.auth.Test
+java -cp $cp moofwd.test.Test
 

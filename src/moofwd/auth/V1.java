@@ -9,8 +9,10 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
+import moofwd.auth.OAuth.Owner;
 import moofwd.auth.OAuth.Resource;
 
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import static moofwd.auth.OutputUtils.*;
@@ -81,24 +83,16 @@ public class V1 extends Service {
 	public void execute(String resourceId, JSONObject data){
 		try{
 			Resource resource = provider.getResource(resourceId);
-			boolean isPost = "post".equalsIgnoreCase(resource.method);
+			//boolean isPost = "post".equalsIgnoreCase(resource.method);
 			String resourceUrl = provider.getResourceAsUrl(resourceId, data);
 			Map<String, String> params = getAccessParams(null, owner.accessToken);
 			String baseString = null;
-			Map<String, String> postData = new HashMap<String, String>();
-			if (isPost){
-				
-				for (String param : resource.postParams) {
-					postData.put(param, data.getString(param)); // we are treating every post param as 'required' ... will change that soon
-				}
-				
-				Map<String, String> mergedMapForBaseString = new HashMap<String, String>();
-				mergedMapForBaseString.putAll(params);
-				mergedMapForBaseString.putAll(postData);
-				baseString = getBaseString(mergedMapForBaseString, resourceUrl, "POST"); //a little confusion .. what to do with query params?
-			} else {
-				baseString = getBaseString(params, resourceUrl, "GET"); //a little confusion .. what to do with query params?
-			}
+			Map<String, String> postData = resource.getParams(data);
+			Map<String, String> mergedMapForBaseString = new HashMap<String, String>();
+			mergedMapForBaseString.putAll(params);
+			mergedMapForBaseString.putAll(postData);
+			baseString = getBaseString(mergedMapForBaseString, resourceUrl, resource.method.toUpperCase()); //a little confusion .. what to do with query params?
+			
 			 
 			String secret = getSecretKey(consumer.apiSecret, owner.accessTokenSecret); //("MCD8BKwGdgPHvAuvgvz4EQpqDAtx89grbuNMRd7Eh98", "J6zix3FfA9LofH0awS24M3HcBYXO5nI1iYe8EfBA");//
 			String signature = sign(baseString, secret);
@@ -124,7 +118,7 @@ public class V1 extends Service {
 	
 	
 	
-	protected void processToken(String url){
+	public void processToken(String url){
 		say("V1: processing token from url: "+url);
 		Map<String,String> params = extractQueryParams(url);
 		String oauth_verifier = params.get(O_VERIFIER);
@@ -179,6 +173,15 @@ public class V1 extends Service {
 		if (oauth_verifier!=null)
 			authParams.put(O_VERIFIER, oauth_verifier);
 		return authParams;
+	}
+	
+	protected void setOwner(JSONObject respJson)throws JSONException{
+		String at = respJson.getString(provider.accessTokenKey);
+		String ats = respJson.optString(provider.accessTokenSecretKey);
+		respJson.remove(provider.accessTokenKey);
+		respJson.remove(provider.accessTokenSecretKey);
+		owner = new Owner().token(at).secret(ats).data(respJson);
+		
 	}
 	
 	//Util Methods
